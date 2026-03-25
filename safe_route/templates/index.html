@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Safe Route Prediction System</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root{
+  --bg:#0a0e1a;--panel:#111827;--panel2:#161e2e;--border:#1e2d45;
+  --accent:#00c6ff;--accent2:#0072ff;
+  --safe:#22c55e;--moderate:#f59e0b;--danger:#ef4444;
+  --text:#e2e8f0;--muted:#64748b;
+  --fh:'Rajdhani',sans-serif;--fb:'DM Sans',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:var(--fb);min-height:100vh;overflow-x:hidden}
+
+/* HEADER */
+header{background:linear-gradient(135deg,#0a0e1a,#111827);border-bottom:1px solid var(--border);
+  padding:14px 32px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:1000}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:40px;height:40px;background:linear-gradient(135deg,var(--accent2),var(--accent));
+  border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px}
+.logo h1{font-family:var(--fh);font-size:22px;font-weight:700;letter-spacing:1px;
+  background:linear-gradient(90deg,var(--accent),#fff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hbadge{background:rgba(0,198,255,.1);border:1px solid rgba(0,198,255,.25);color:var(--accent);
+  font-size:11px;font-weight:600;padding:4px 12px;border-radius:20px;letter-spacing:1px;text-transform:uppercase}
+
+/* LAYOUT */
+.wrap{max-width:1600px;margin:0 auto;padding:24px 28px;display:flex;flex-direction:column;gap:22px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+/* STAT CARDS */
+.stats-row{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;animation:fadeUp .5s ease both}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;
+  padding:18px 20px;display:flex;align-items:center;gap:14px;
+  transition:border-color .2s,transform .2s;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--accent2),var(--accent));opacity:0;transition:opacity .3s}
+.stat-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.stat-card:hover::before{opacity:1}
+.sicon{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.sicon.bl{background:rgba(0,114,255,.15)}.sicon.rd{background:rgba(239,68,68,.15)}
+.sicon.or{background:rgba(245,158,11,.15)}.sicon.gr{background:rgba(34,197,94,.15)}
+.sicon.pu{background:rgba(139,92,246,.15)}
+.slabel{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-weight:500;margin-bottom:3px}
+.sval{font-family:var(--fh);font-size:22px;font-weight:700;line-height:1}
+.sval.bl{color:var(--accent)}.sval.rd{color:var(--danger)}.sval.or{color:var(--moderate)}
+.sval.gr{color:var(--safe)}.sval.pu{color:#a78bfa}
+
+/* CHARTS */
+.charts-row{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:14px;animation:fadeUp .5s .1s ease both}
+.chart-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 20px}
+.ctitle{font-family:var(--fh);font-size:14px;font-weight:600;letter-spacing:.5px;margin-bottom:14px;color:#cbd5e1}
+
+/* ROUTE SECTION */
+.route-section{display:grid;grid-template-columns:320px 1fr;gap:18px;animation:fadeUp .5s .2s ease both}
+.sidebar{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px}
+.card h3{font-family:var(--fh);font-size:15px;font-weight:600;letter-spacing:.5px;margin-bottom:14px;color:#cbd5e1}
+
+/* INPUTS */
+.igrp{margin-bottom:12px}
+.igrp label{display:block;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px}
+.igrp input{width:100%;background:var(--panel2);border:1px solid var(--border);border-radius:8px;
+  padding:9px 13px;color:var(--text);font-family:var(--fb);font-size:14px;outline:none;transition:border-color .2s}
+.igrp input:focus{border-color:var(--accent)}
+.igrp input::placeholder{color:var(--muted)}
+.btn-find{width:100%;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;
+  border-radius:9px;padding:12px;color:#fff;font-family:var(--fh);font-size:15px;font-weight:700;
+  letter-spacing:1px;cursor:pointer;transition:opacity .2s,transform .15s;
+  display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px}
+.btn-find:hover{opacity:.88;transform:translateY(-1px)}
+.btn-find:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;
+  padding:9px 13px;font-size:12px;color:var(--danger);margin-top:10px;display:none}
+
+/* ROUTE OPTIONS */
+.route-opt{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:9px;
+  border:1px solid transparent;cursor:pointer;margin-bottom:7px;transition:all .2s;position:relative}
+.route-opt:hover{background:var(--panel2)}
+.route-opt.active{border-color:var(--accent);background:rgba(0,198,255,.06)}
+.route-opt.active::after{content:'✓';position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  font-size:14px;font-weight:700;color:var(--accent)}
+.rdot{width:13px;height:13px;border-radius:50%;flex-shrink:0}
+.rname{font-weight:600;font-size:13px;flex:1}
+.rmeta{display:flex;gap:8px;font-size:11px;color:var(--muted);margin-top:2px}
+.rbadge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;letter-spacing:.5px}
+.rbadge.low{background:rgba(34,197,94,.15);color:var(--safe)}
+.rbadge.med{background:rgba(245,158,11,.15);color:var(--moderate)}
+.rbadge.hi {background:rgba(239,68,68,.15);color:var(--danger)}
+
+/* LEGEND */
+.leg-item{display:flex;align-items:center;gap:10px;font-size:12px;margin-bottom:7px}
+.leg-line{width:28px;height:4px;border-radius:2px}
+
+/* MAP */
+.map-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;position:relative;min-height:560px}
+.map-hdr{padding:13px 17px;border-bottom:1px solid var(--border);display:flex;align-items:center;
+  justify-content:space-between;background:var(--panel2)}
+.map-hdr-title{font-family:var(--fh);font-size:14px;font-weight:600;letter-spacing:.5px}
+.mstatus{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--safe)}
+.pdot{width:8px;height:8px;background:var(--safe);border-radius:50%;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.3)}}
+#map{height:490px;width:100%}
+
+/* LEAFLET POPUP */
+.leaflet-popup-content-wrapper{background:#1a2540!important;border:1px solid #2a3f6a!important;
+  color:#e2e8f0!important;border-radius:10px!important;box-shadow:0 8px 32px rgba(0,0,0,.5)!important}
+.leaflet-popup-tip{background:#1a2540!important}
+.pt{font-family:var(--fh);font-size:14px;font-weight:700;margin-bottom:7px;color:#ef4444}
+.pr{font-size:11px;margin-bottom:3px;color:#94a3b8}.pr span{color:#e2e8f0;font-weight:600}
+
+/* LOADING */
+.lov{position:absolute;inset:0;background:rgba(10,14,26,.87);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;z-index:1000;border-radius:14px;
+  backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .3s}
+.lov.show{opacity:1;pointer-events:all}
+.spin{width:42px;height:42px;border:3px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .7s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ltxt{font-family:var(--fh);font-size:14px;font-weight:600;color:var(--accent);letter-spacing:1px}
+.lstep{font-size:11px;color:var(--muted);margin-top:5px}
+
+/* TOAST */
+.toast{position:fixed;bottom:22px;right:22px;background:var(--panel);border:1px solid var(--safe);
+  border-radius:11px;padding:13px 18px;font-size:13px;font-weight:500;color:var(--safe);
+  z-index:9999;transform:translateY(70px);opacity:0;transition:all .35s cubic-bezier(.34,1.56,.64,1)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.err{border-color:var(--danger);color:var(--danger)}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🛡️</div>
+    <h1>SAFE ROUTE PREDICTION SYSTEM</h1>
+  </div>
+  <div class="hbadge">🇮🇳 India Road Safety · 3,000 Records</div>
+</header>
+
+<div class="wrap">
+
+  <!-- STAT CARDS -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="sicon bl">📊</div>
+      <div><div class="slabel">Total Accidents</div><div class="sval bl" id="s-total">—</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="sicon rd">⚠️</div>
+      <div><div class="slabel">Most Dangerous State</div><div class="sval rd" id="s-state">—</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="sicon or">🏙️</div>
+      <div><div class="slabel">High Risk City</div><div class="sval or" id="s-city">—</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="sicon gr">💀</div>
+      <div><div class="slabel">Fatal Accidents</div><div class="sval gr" id="s-fatal">—</div></div>
+    </div>
+    <div class="stat-card">
+      <div class="sicon pu">🍺</div>
+      <div><div class="slabel">Alcohol Involved</div><div class="sval pu" id="s-alcohol">—</div></div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="ctitle">Accidents by State (Top 8)</div>
+      <canvas id="barChart" height="110"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="ctitle">Severity Breakdown</div>
+      <canvas id="pieChart" height="130"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="ctitle">Monthly Trend</div>
+      <canvas id="lineChart" height="130"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="ctitle">By Road Type</div>
+      <canvas id="roadChart" height="130"></canvas>
+    </div>
+  </div>
+
+  <!-- ROUTE + MAP -->
+  <div class="route-section">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="card">
+        <h3>🗺️ Route Planner</h3>
+        <div class="igrp">
+          <label>Source City</label>
+          <input id="src" type="text" placeholder="e.g. Hyderabad" value="Hyderabad"/>
+        </div>
+        <div class="igrp">
+          <label>Destination City</label>
+          <input id="dst" type="text" placeholder="e.g. Pune" value="Pune"/>
+        </div>
+        <button class="btn-find" id="findBtn" onclick="findRoute()">🛡️ FIND SAFE ROUTE</button>
+        <div class="err" id="errMsg"></div>
+      </div>
+
+      <div class="card" id="routesCard" style="display:none">
+        <h3>📍 Route Options</h3>
+        <div id="routeList"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin-bottom:10px">Legend</h3>
+        <div class="leg-item"><div class="leg-line" style="background:var(--safe)"></div>Low Risk (0–3 accidents)</div>
+        <div class="leg-item"><div class="leg-line" style="background:var(--moderate)"></div>Moderate Risk (4–10)</div>
+        <div class="leg-item"><div class="leg-line" style="background:var(--danger)"></div>High Risk (10+)</div>
+        <div class="leg-item" style="margin-top:8px"><span style="font-size:18px">⚠️</span>Accident Hotspot</div>
+        <div class="leg-item"><span style="font-size:18px">🟦</span>Fastest Route</div>
+        <div class="leg-item"><span style="font-size:18px">🟩</span>Safest Route</div>
+        <div class="leg-item"><span style="font-size:18px">⬜</span>Balanced Route</div>
+      </div>
+    </div>
+
+    <!-- MAP -->
+    <div class="map-card">
+      <div class="map-hdr">
+        <div class="map-hdr-title">Live Safety Map — OpenStreetMap + Real Accident Data</div>
+        <div class="mstatus"><div class="pdot"></div>Live</div>
+      </div>
+      <div id="map"></div>
+      <div class="lov" id="lov">
+        <div class="spin"></div>
+        <div class="ltxt">Analyzing Route Safety...</div>
+        <div class="lstep" id="lstep">Geocoding locations...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+Chart.defaults.color='#64748b';
+Chart.defaults.font.family='DM Sans';
+
+// ── MAP INIT ──────────────────────────────────────────────────────────────────
+const map = L.map('map').setView([20.5, 78.9], 5);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'©OpenStreetMap ©CartoDB', maxZoom:18
+}).addTo(map);
+
+let layers=[], activeIdx=0, allRoutes=[], lastData=null;
+
+function clearMap(){ layers.forEach(l=>map.removeLayer(l)); layers=[]; }
+
+function icon(color, label){
+  return L.divIcon({
+    html:`<div style="background:${color};color:#fff;border-radius:50%;width:32px;height:32px;
+      display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;
+      border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)">${label}</div>`,
+    iconSize:[32,32],iconAnchor:[16,16],className:''
+  });
+}
+function hotIcon(){
+  return L.divIcon({
+    html:`<div style="font-size:22px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.8));cursor:pointer">⚠️</div>`,
+    iconSize:[26,26],iconAnchor:[13,13],className:''
+  });
+}
+
+function renderMap(data, selIdx){
+  clearMap();
+  const routes = data.routes;
+  // Non-selected behind
+  routes.forEach((r,i)=>{ if(i!==selIdx) drawRoute(r, false); });
+  drawRoute(routes[selIdx], true);
+
+  // Hotspots
+  (data.hotspots||[]).forEach(h=>{
+    const m = L.marker([h.lat,h.lon],{icon:hotIcon()}).addTo(map)
+      .bindPopup(`
+        <div class="pt">⚠️ Accident Hotspot</div>
+        <div class="pr">City: <span>${h.city}</span></div>
+        <div class="pr">State: <span>${h.state}</span></div>
+        <div class="pr">Severity: <span>${h.severity}</span></div>
+        <div class="pr">Road Type: <span>${h.road}</span></div>
+        <div class="pr">Weather: <span>${h.weather}</span></div>
+        <div class="pr">Casualties: <span>${h.casualties}</span></div>
+        <div class="pr">Fatalities: <span>${h.fatalities}</span></div>
+      `);
+    layers.push(m);
+  });
+
+  // S/D pins
+  layers.push(
+    L.marker(data.src_coord,{icon:icon('#0072ff','S')}).addTo(map).bindPopup(`<b>Source:</b> ${data.source}`),
+    L.marker(data.dst_coord,{icon:icon('#ef4444','D')}).addTo(map).bindPopup(`<b>Destination:</b> ${data.destination}`)
+  );
+
+  const pts = routes[selIdx].segments.flatMap(s=>s.coords);
+  if(pts.length) map.fitBounds(pts,{padding:[40,40]});
+}
+
+function drawRoute(route, active){
+  route.segments.forEach(seg=>{
+    const l = L.polyline(seg.coords,{
+      color: seg.color, weight: active?6:3, opacity: active?1:0.28
+    }).addTo(map);
+    layers.push(l);
+  });
+}
+
+function selectRoute(idx){
+  activeIdx=idx;
+  document.querySelectorAll('.route-opt').forEach((el,i)=>el.classList.toggle('active',i===idx));
+  renderMap(lastData, idx);
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+let barC, pieC, lineC, roadC;
+
+async function loadDashboard(){
+  try{
+    const [dash,states,sevs,monthly,roads] = await Promise.all([
+      fetch('/api/dashboard').then(r=>r.json()),
+      fetch('/api/accidents/state').then(r=>r.json()),
+      fetch('/api/accidents/severity').then(r=>r.json()),
+      fetch('/api/accidents/monthly').then(r=>r.json()),
+      fetch('/api/accidents/roadtype').then(r=>r.json()),
+    ]);
+
+    document.getElementById('s-total').textContent   = (dash.total_accidents||0).toLocaleString();
+    document.getElementById('s-state').textContent   = dash.most_dangerous_state||'—';
+    document.getElementById('s-city').textContent    = dash.high_risk_city||'—';
+    document.getElementById('s-fatal').textContent   = (dash.fatal_accidents||0).toLocaleString();
+    document.getElementById('s-alcohol').textContent = (dash.alcohol_involved_pct||0)+'%';
+
+    // Bar
+    barC = new Chart(document.getElementById('barChart'),{
+      type:'bar',
+      data:{
+        labels: states.map(s=>s.state.replace(' Pradesh','').replace(' and Kashmir','&K')),
+        datasets:[{
+          label:'Accidents', data:states.map(s=>s.count),
+          backgroundColor:['#ef4444','#3b82f6','#f59e0b','#22c55e','#8b5cf6','#06b6d4','#f97316','#84cc16'],
+          borderRadius:5, borderSkipped:false
+        }]
+      },
+      options:{plugins:{legend:{display:false}},scales:{x:{grid:{color:'#1e2d45'},ticks:{font:{size:10}}},y:{grid:{color:'#1e2d45'},ticks:{font:{size:10}}}}}
+    });
+
+    // Pie
+    pieC = new Chart(document.getElementById('pieChart'),{
+      type:'doughnut',
+      data:{
+        labels:sevs.map(s=>s.severity),
+        datasets:[{data:sevs.map(s=>s.count),backgroundColor:['#f59e0b','#22c55e','#ef4444'],borderColor:'#111827',borderWidth:3}]
+      },
+      options:{cutout:'62%',plugins:{legend:{position:'bottom',labels:{padding:12,boxWidth:10,font:{size:10}}}}}
+    });
+
+    // Line
+    lineC = new Chart(document.getElementById('lineChart'),{
+      type:'line',
+      data:{
+        labels:monthly.map(m=>m.month),
+        datasets:[{label:'Accidents',data:monthly.map(m=>m.count),
+          borderColor:'#00c6ff',backgroundColor:'rgba(0,198,255,.08)',
+          borderWidth:2,pointRadius:2,pointBackgroundColor:'#00c6ff',fill:true,tension:.4}]
+      },
+      options:{plugins:{legend:{display:false}},scales:{x:{grid:{color:'#1e2d45'},ticks:{font:{size:9}}},y:{grid:{color:'#1e2d45'},ticks:{font:{size:9}}}}}
+    });
+
+    // Road type bar
+    roadC = new Chart(document.getElementById('roadChart'),{
+      type:'bar',
+      data:{
+        labels:roads.map(r=>r.road),
+        datasets:[{label:'Accidents',data:roads.map(r=>r.count),
+          backgroundColor:['#3b82f6','#f59e0b','#22c55e','#ef4444'],
+          borderRadius:5,borderSkipped:false}]
+      },
+      options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'#1e2d45'},ticks:{font:{size:9}}},y:{grid:{color:'#1e2d45'},ticks:{font:{size:10}}}}}
+    });
+
+  }catch(e){
+    console.error('Dashboard failed:',e);
+    showToast('⚠ Could not load dashboard — is Flask running?', true);
+  }
+}
+
+// ── ROUTE FIND ────────────────────────────────────────────────────────────────
+const STEPS=['Geocoding locations...','Generating route options...','Scanning accident records...','Calculating risk scores per segment...','Identifying danger zones...'];
+
+async function findRoute(){
+  const src = document.getElementById('src').value.trim();
+  const dst = document.getElementById('dst').value.trim();
+  document.getElementById('errMsg').style.display='none';
+  if(!src||!dst){showErr('Please enter both source and destination.');return;}
+
+  const btn=document.getElementById('findBtn');
+  btn.disabled=true; btn.textContent='⏳ Analyzing...';
+  const lov=document.getElementById('lov'); lov.classList.add('show');
+
+  let si=0;
+  const timer=setInterval(()=>{
+    document.getElementById('lstep').textContent=STEPS[si++%STEPS.length];
+  },750);
+
+  try{
+    const resp = await fetch('/api/route',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({source:src,destination:dst})
+    });
+    if(!resp.ok){const e=await resp.json();throw new Error(e.error||'Server error');}
+    const data=await resp.json();
+    lastData=data; allRoutes=data.routes; activeIdx=data.safest_index;
+
+    // Build route list
+    const dotColors=['#3b82f6','#22c55e','#6b7280'];
+    const riskClass = score => score<=20?'low':score<=50?'med':'hi';
+    const riskLabel = score => score<=20?'LOW RISK':score<=50?'MODERATE':'HIGH RISK';
+
+    document.getElementById('routeList').innerHTML = data.routes.map((r,i)=>`
+      <div class="route-opt${i===data.safest_index?' active':''}" onclick="selectRoute(${i})">
+        <div class="rdot" style="background:${dotColors[i%3]}"></div>
+        <div>
+          <div class="rname">${r.name}${i===data.safest_index?' ⭐':''}</div>
+          <div class="rmeta">
+            <span>${r.distance_km} km</span>
+            <span>${Math.floor(r.duration_h)}h ${Math.round((r.duration_h%1)*60)}m</span>
+            <span>Risk: ${r.total_score}</span>
+          </div>
+        </div>
+        <span class="rbadge ${riskClass(r.total_score)}">${riskLabel(r.total_score)}</span>
+      </div>`).join('');
+
+    document.getElementById('routesCard').style.display='block';
+    renderMap(data, data.safest_index);
+    showToast(`✅ Safest route: ${data.routes[data.safest_index].name} (${data.routes[data.safest_index].distance_km} km)`);
+
+  }catch(e){
+    showErr(e.message||'Connection failed. Make sure Flask is running on port 5000.');
+  }finally{
+    clearInterval(timer);
+    lov.classList.remove('show');
+    btn.disabled=false; btn.innerHTML='🛡️ FIND SAFE ROUTE';
+  }
+}
+
+function showErr(msg){
+  const el=document.getElementById('errMsg');
+  el.textContent='⚠ '+msg; el.style.display='block';
+}
+function showToast(msg, isErr=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='toast show'+(isErr?' err':'');
+  setTimeout(()=>t.classList.remove('show'),4500);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+loadDashboard();
+</script>
+</body>
+</html>
